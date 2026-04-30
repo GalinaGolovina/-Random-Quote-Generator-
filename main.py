@@ -6,97 +6,106 @@ import random
 QUOTES_FILE = "quotes.json"
 HISTORY_FILE = "history.json"
 
-# --- Загрузка данных ---
+# --- Функции работы с данными ---
 def load_quotes():
+    """Загружает список цитат из файла."""
     try:
-        with open(QUOTES_FILE, "r", encoding="utf-8") as f:
+        with open(QUOTES_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
         return []
 
 def load_history():
+    """Загружает историю сгенерированных цитат."""
     try:
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
         return []
 
 def save_history(history):
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+    """Сохраняет историю в файл."""
+    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 # --- Логика приложения ---
 def generate_quote():
+    """Генерирует случайную цитату и обновляет историю."""
     quotes = load_quotes()
     if not quotes:
-        messagebox.showwarning("Нет данных", "Список цитат пуст.")
+        messagebox.showwarning("Ошибка", "Файл с цитатами пуст или отсутствует.")
         return
 
     quote = random.choice(quotes)
     
-    # Добавляем в историю (без дубликатов)
+    # Обновление истории (без дубликатов)
     history = load_history()
     if quote not in history:
         history.append(quote)
         save_history(history)
-
-    # Отображаем цитату
-    text_quote.config(state="normal")
-    text_quote.delete(1.0, tk.END)
-    text_quote.insert(tk.END, f'"{quote["text"]}"\n\n— {quote["author"]}')
-    text_quote.config(state="disabled")
+    
+    # Отображение цитаты в интерфейсе
+    quote_text_display.config(state="normal")
+    quote_text_display.delete(1.0, tk.END)
+    quote_text_display.insert(tk.END, f'"{quote["text"]}"\n\n— {quote["author"]}')
+    quote_text_display.config(state="disabled")
 
 def filter_history():
-    author = entry_author_filter.get().strip().lower()
-    topic = selected_topic.get()
+    """Фильтрует историю по автору и теме."""
+    author_filter = entry_author.get().strip().lower()
     
     history = load_history()
     
-    filtered = history
+    filtered_history = history.copy()
     
-    if author:
-        filtered = [q for q in filtered if author in q["author"].lower()]
+    # Фильтр по автору
+    if author_filter:
+        filtered_history = [q for q in filtered_history if author_filter in q["author"].lower()]
     
-    if topic and topic != "Все":
-        filtered = [q for q in filtered if q["topic"] == topic]
+    # Фильтр по теме
+    selected_topic_value = selected_topic.get()
+    if selected_topic_value != "Все":
+        filtered_history = [q for q in filtered_history if q["topic"] == selected_topic_value]
     
+    # Обновление списка в GUI
     listbox_history.delete(0, END)
-    for q in filtered:
+    for q in filtered_history:
         listbox_history.insert(END, f'{q["author"]} — {q["topic"]}')
 
-# --- GUI ---
+# --- Создание графического интерфейса ---
 root = tk.Tk()
 root.title("Генератор случайных цитат")
-root.geometry("600x500")
+root.geometry("650x500")
 
 # Блок генерации цитаты
 frame_quote = tk.Frame(root)
-frame_quote.pack(pady=10, fill=tk.X)
+frame_quote.pack(pady=10)
 
 btn_generate = tk.Button(frame_quote, text="Сгенерировать цитату", command=generate_quote)
-btn_generate.pack(side=tk.LEFT)
+btn_generate.pack(side=tk.LEFT, padx=5)
 
-text_quote = tk.Text(root, height=4, width=70, wrap=tk.WORD, state="disabled")
-text_quote.pack(pady=10)
+quote_text_display = tk.Text(root, height=4, width=70, wrap=tk.WORD, state="disabled")
+quote_text_display.pack(pady=10)
 
 # Блок фильтрации истории
 frame_filter = tk.Frame(root)
-frame_filter.pack(pady=10, fill=tk.X)
+frame_filter.pack(pady=10)
 
 tk.Label(frame_filter, text="Фильтр по автору:").pack(side=tk.LEFT)
-entry_author_filter = tk.Entry(frame_filter)
-entry_author_filter.pack(side=tk.LEFT, expand=True, fill=tk.X)
+entry_author = tk.Entry(frame_filter)
+entry_author.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=5)
 
-# Получаем уникальные темы для фильтра
-topics = ["Все"] + sorted({q["topic"] for q in load_quotes()})
-selected_topic = StringVar(value=topics[0])
-topic_menu = OptionMenu(frame_filter, selected_topic, *topics)
+# Создание выпадающего списка тем (берем уникальные из файла)
+all_quotes = load_quotes()
+unique_topics = ["Все"] + sorted({q["topic"] for q in all_quotes})
+selected_topic = StringVar(value=unique_topics[0])
+topic_menu = OptionMenu(frame_filter, selected_topic, *unique_topics)
 topic_menu.pack(side=tk.LEFT, padx=5)
 
 btn_filter = tk.Button(frame_filter, text="Фильтровать", command=filter_history)
 btn_filter.pack(side=tk.LEFT)
 
-# Блок истории
+# Блок истории с прокруткой
 frame_history = tk.Frame(root)
 frame_history.pack(pady=10, fill=tk.BOTH, expand=True)
 
@@ -106,3 +115,5 @@ scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 listbox_history = Listbox(frame_history, yscrollcommand=scrollbar.set, width=70, height=10)
 listbox_history.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 scrollbar.config(command=listbox_history.yview)
+
+root.mainloop()
